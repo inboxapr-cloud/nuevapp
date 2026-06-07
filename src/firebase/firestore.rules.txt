@@ -1,0 +1,98 @@
+// Firebase Security Rules — MiCantón.cr
+// Subir en Firebase Console → Firestore → Rules
+// O via: firebase deploy --only firestore:rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──
+    function isAuth() { return request.auth != null; }
+    function isTipo(tipo) { return request.auth.token.tipo == tipo; }
+    function isAdmin() { return isTipo('admin'); }
+    function isNegocio(negId) {
+      return isAuth() && request.auth.uid == negId && isTipo('negocio');
+    }
+
+    // ── Negocios ──
+    match /negocios/{negId} {
+      // Cualquiera lee negocios activos
+      allow read: if resource.data.activo == true || isAdmin();
+      // Solo el dueño del negocio o admin escribe
+      allow write: if isNegocio(negId) || isAdmin();
+
+      // Subcolección de items del catálogo
+      match /items/{itemId} {
+        allow read: if true; // Catálogo es público
+        allow write: if isNegocio(negId) || isAdmin();
+      }
+    }
+
+    // ── Profesionales ──
+    match /profesionales/{proId} {
+      allow read: if resource.data.activo == true || isAdmin();
+      allow write: if (isAuth() && request.auth.uid == proId
+                       && (isTipo('profesional') || isTipo('creativo')))
+                   || isAdmin();
+
+      match /servicios/{svcId} {
+        allow read: if true;
+        allow write: if isAuth() && request.auth.uid == proId || isAdmin();
+      }
+    }
+
+    // ── Pedidos ──
+    match /pedidos/{pedidoId} {
+      // Solo el cliente o el negocio involucrado leen el pedido
+      allow read: if isAuth() && (
+        request.auth.uid == resource.data.clienteId ||
+        request.auth.uid == resource.data.negocioId ||
+        isAdmin()
+      );
+      // Cliente autenticado puede crear pedidos
+      allow create: if isAuth();
+      // Solo el negocio actualiza el estado
+      allow update: if isAuth() && request.auth.uid == resource.data.negocioId
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['st', 'updatedAt']);
+      allow delete: if isAdmin();
+    }
+
+    // ── Clasificados ──
+    match /clasificados/{docId} {
+      allow read: if resource.data.activo == true || isAdmin();
+      allow create: if isAuth();
+      allow update, delete: if isAuth() && request.auth.uid == resource.data.userId
+                            || isAdmin();
+    }
+
+    // ── Config (ROL_PERMS, plantillas, taxonomía) ──
+    match /config/{docId} {
+      allow read: if isAuth(); // cualquier usuario logueado lee config
+      allow write: if isAdmin(); // solo admin escribe
+    }
+
+    // ── Usuarios (perfil público) ──
+    match /usuarios/{userId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == userId || isAdmin();
+    }
+
+    // ── Noticias ──
+    match /noticias/{docId} {
+      allow read: if resource.data.activo == true || isAdmin();
+      allow write: if isTipo('medio') || isAdmin();
+    }
+
+    // ── Eventos ──
+    match /eventos/{docId} {
+      allow read: if resource.data.activo == true || isAdmin();
+      allow write: if isAuth() || isAdmin();
+    }
+
+    // ── Denegar TODO lo demás por defecto ──
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
