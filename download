@@ -1,40 +1,44 @@
-# Dependencias
-node_modules/
-.pnp
-.pnp.js
+/**
+ * Navegación — goMod, goBack, setPnTab, irPerfil, etc.
+ */
+import { render } from './renderer.js';
 
-# Build
-dist/
-dist-ssr/
-*.local
+export function goMod(mod) {
+  window.MOD = mod; window.VIEW = null;
+  render();
+  const c = document.getElementById('content');
+  if (c) c.scrollTop = 0;
+}
 
-# Variables de entorno — NUNCA en git
-.env
-.env.local
-.env.production
-.env.development.local
+export function goBack() {
+  if (window.VIEW) { window.VIEW = null; render(); return; }
+  goMod('inicio');
+}
 
-# Secretos
-*service-account*.json
-*firebase-adminsdk*.json
+export function setPnTab(tab) {
+  window.pnTab = tab; render();
+}
 
-# Logs
-npm-debug.log*
-yarn-debug.log*
-pnpm-debug.log*
+export function setAdminTab(tab) {
+  window.adminTab = tab; window.adminDetail = null;
+  window.MOD = 'admin'; render();
+}
 
-# Editor
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+export function irPerfilNegocio(id) {
+  window.VIEW = 'negocio-' + id; render();
+  const c = document.getElementById('content');
+  if (c) c.scrollTop = 0;
+}
 
-# OS
-.DS_Store
-Thumbs.db
+export function irPerfilProfesional(id) {
+  window.VIEW = 'pro-' + id; render();
+  const c = document.getElementById('content');
+  if (c) c.scrollTop = 0;
+}
 
-# Análisis de bundle (no se commitea)
-dist/bundle-analysis.html
+export function abrirUrl(url) {
+  if (url) window.open(url, '_blank');
+  else if (typeof showToast === 'function') showToast('Sin sitio web registrado');
+}
+
+export default { goMod, goBack, setPnTab, setAdminTab, irPerfilNegocio, irPerfilProfesional, abrirUrl };
