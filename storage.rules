@@ -1,0 +1,39 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Fotos de catálogo — solo el dueño del negocio
+    match /negocios/{negId}/items/{itemId}/{foto} {
+      allow read: if true; // fotos públicas
+      allow write: if request.auth != null
+                   && request.auth.uid == negId
+                   && request.auth.token.tipo == 'negocio'
+                   && request.resource.size < 5 * 1024 * 1024  // max 5MB
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Fotos de profesionales
+    match /profesionales/{proId}/{foto} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == proId
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Fotos de clasificados
+    match /clasificados/{userId}/{foto} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 3 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Admin — acceso total
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.token.tipo == 'admin';
+    }
+  }
+}
